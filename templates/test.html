@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<hr>
+<h3>Success Logs</h3>
+<p style="color: red; font-size: x-small;"><em>All sucessfull api hits would show up here. Check console for
+        errors.</em></p>
+<div id="message" style="width: 500px; overflow-wrap: break-word;"></div>
+<hr>
+<h3>Create an user</h3>
+<form id="createUserForm">
+    <input type="text" id="username" name="username" placeholder="Username" required>
+    <input type="password" id="password" name="password" placeholder="Password" required>
+    <button type="submit">Create User</button>
+</form>
+
+<script>
+    $(document).ready(function () {
+        $('#createUserForm').submit(function (event) {
+            event.preventDefault();
+
+            var username = $('#username').val();
+            var password = $('#password').val();
+
+            var apiURL = '/api/v1/accounts/signup/';
+            var requestData = {
+                'username': username,
+                'password': password
+            };
+
+            $.ajax({
+                url: apiURL,
+                type: 'POST',
+                data: requestData,
+                success: function (response) {
+                    var message = 'User ' + username + ' created successfully';
+                    $('#message').html(message);
+                },
+                error: function (xhr, status, error) {
+                    console.log('Error:', error);
+                }
+            });
+        });
+    });
+</script>
+
+<hr>
+<h3>Login Form (Access Token)</h3>
+<form id="signInForm">
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username">
+
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password">
+
+    <button type="submit">Sign In</button>
+</form>
+
+<div id="message"></div>
+
+<script>
+    $(document).ready(function () {
+        $('#signInForm').submit(function (event) {
+            event.preventDefault();
+
+            var username = $('#username').val();
+            var password = $('#password').val();
+
+            var apiURL = '/api/v1/accounts/token/';
+            var requestData = {
+                'username': username,
+                'password': password
+            };
+
+            $.ajax({
+                url: apiURL,
+                type: 'POST',
+                data: requestData,
+                success: function (response) {
+                    var token = response.access;
+                    var message = 'JWT token: ' + token;
+                    $('#message').html(message);
+                },
+                error: function (xhr, status, error) {
+                    console.log('Error:', error);
+                }
+            });
+        });
+    });
+</script>
+
+<hr>
+<h3>Incidents List</h3>
+<div id="incidents-container"></div>
+
+<form id="token-form">
+    <input type="text" id="access-token-input" placeholder="Access Token" />
+    <button type="submit">Refresh</button>
+</form>
+
+<script>
+    $(document).ready(function () {
+        function refreshIncidentsList(accessToken) {
+            $.ajax({
+                url: "/api/v1/incidents/",
+                method: "GET",
+                headers: {
+                    "Authorization": "Bearer " + accessToken
+                },
+                success: function (response) {
+                    var incidents = response;
+                    var incidentsContainer = $("#incidents-container");
+                    incidentsContainer.empty();
+
+                    incidents.forEach(function (incident) {
+                        var incidentElement = $("<div>").text(incident.incident_id + " - " + incident.incident_details + " - " + incident.priority + " - " + incident.status);
+                        incidentsContainer.append(incidentElement);
+                    });
+                },
+                error: function (error) {
+                    console.log(error);
+                }
+            });
+        }
+
+        $("#token-form").submit(function (event) {
+            event.preventDefault();
+            var accessToken = $("#access-token-input").val();
+            refreshIncidentsList(accessToken);
+        });
+    });
+</script>
+
+
+<hr>
+<h3>Create Incident</h3>
+<form id="incident-form">
+    <div class="form-group">
+        <label for="details">Details</label>
+        <textarea class="form-control" id="details" rows="3" required></textarea>
+    </div>
+    <div class="form-group">
+        <label for="priority">Priority</label>
+        <select class="form-control" id="priority" required>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="access-token">Access Token</label>
+        <input type="text" class="form-control" id="access-token" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Create Incident</button>
+</form>
+<script>
+    $(document).ready(function () {
+        $('#incident-form').submit(function (event) {
+            event.preventDefault();
+
+            var formData = {
+                'incident_details': $('#details').val(),
+                'priority': $('#priority').val()
+            };
+
+            var accessToken = $('#access-token').val();
+
+            $.ajax({
+                type: 'POST',
+                url: '/api/v1/incidents/create/',
+                headers: {
+                    'Authorization': 'Bearer ' + accessToken
+                },
+                data: formData,
+                success: function (response) {
+                    console.log('Incident created:', response);
+                    $('#message').html('Incident created successfully!');
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error creating incident:', error);
+                    $('#message').html('Error creating incident.');
+                }
+            });
+        });
+    });
+</script>
+
+<hr>
+<h3>Edit Incident</h3>
+<form id="editForm">
+    <label for="incidentId">Incident ID:</label>
+    <input type="text" name="incident_id" id="incidentId" placeholder="Incident ID">
+    <label for="accessToken">Access Token:</label>
+    <input type="text" name="access_token" id="accessToken" placeholder="Access Token">
+    <textarea id="details" placeholder="Incident Details">{{ incident.details }}</textarea>
+    <select id="priority">
+        <option value="High">High</option>
+        <option value="Medium">Medium</option>
+        <option value="Low">Low</option>
+    </select>
+    <select id="status">
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Closed">Closed</option>
+    </select>
+    <button type="submit">Save Changes</button>
+</form>
+
+<script>
+    $(document).ready(function () {
+        function handleEditFormSubmission(event) {
+            event.preventDefault();
+            const form = $('#editForm');
+            const incidentId = form.find('#incidentId').val();
+            const accessToken = form.find('#accessToken').val();
+            const details = form.find('#details').val();
+            const priority = form.find('#priority').val();
+            const status = form.find('#status').val();
+
+            const payload = {
+                incident_details: details,
+                priority: priority,
+                status: status
+            };
+
+            $.ajax({
+                url: `/api/v1/incidents/edit/${incidentId}/`,
+                type: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                data: JSON.stringify(payload),
+                success: function (data) {
+                    console.log(data);
+                },
+                error: function (error) {
+                    console.error(error);
+                }
+            });
+        }
+
+        $('#editForm').on('submit', handleEditFormSubmission);
+    });
+</script>
+
+<hr>
+<h3>Search Incident</h3>
+<form id="search-form">
+    <input type="text" id="incident-id" placeholder="Incident ID">
+    <input type="text" id="search-access-token" placeholder="Access Token">
+    <button type="submit" id="search-button">Search</button>
+</form>
+<div id="search-results"></div>
+
+<div id="search-results"></div>
+
+<script>
+    $(document).ready(function () {
+        $('#search-form').submit(function (event) {
+            event.preventDefault();
+            var incidentId = $('#incident-id').val();
+            var accessToken = $('#search-access-token').val();
+
+            $.ajax({
+                url: 'api/v1/incidents/search/' + incidentId + '/',
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + accessToken,
+                },
+                success: function (response) {
+                    var resultHtml = '<h2>Search Results</h2>';
+                    resultHtml += '<p>Incident ID: ' + response.incident_id + '</p>';
+                    resultHtml += '<p>Status: ' + response.status + '</p>';
+                    $('#search-results').html(resultHtml);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    $('#search-results').html('<p>Error: ' + jqXHR.responseJSON.detail + '</p>');
+                }
+            });
+        });
+    });
+</script>
+
+<hr>
+<hr>
+{% endblock content %}

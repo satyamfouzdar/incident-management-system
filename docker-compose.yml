@@ -1,0 +1,21 @@
+version: '3.9'
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: /app/entrypoint.sh
+    depends_on:
+      - db
+  db:
+    image: mysql:8.0
+    env_file:
+      - .env
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - 3306:3306
+volumes:
+  mysql-data:
